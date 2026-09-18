@@ -1,0 +1,238 @@
+---
+name: rust
+description: Always use this skill when reading and writing software in Rust.
+---
+
+# Rust
+
+Follow repository-local conventions first. Apply these defaults where the
+repository is silent. Keep unrelated cleanup out of behavioral changes.
+
+## Toolchain
+
+Use edition 2024 and Rust 1.98.1 or newer for new projects. Respect an existing
+crate's declared minimum supported Rust version, edition, and release channel.
+Set `rust-version` to the oldest compiler the crate actually supports and tests.
+Check the manifest and toolchain before choosing APIs.
+
+Prefer the current standard library when its contract fits. Remove superseded
+helpers and dependencies once their remaining uses are gone. New syntax is not
+a reason to change behavior, numeric semantics, or platform guarantees.
+
+Read [standard library choices](references/standard-library.md) when working on
+collections, parsing, synchronization, memory, FFI, or platform code. Read
+[nightly features](references/nightly.md) when adopting unstable language or
+library features, custom targets, or nightly build tooling. Enable only the
+features actually used and pin a dated nightly for code that requires them.
+
+When setting up CI, test the supported release toolchain and add a current
+nightly compatibility job. Nightly coverage does not establish stable support.
+For a warning-free CI build on Cargo 1.97+, use
+`CARGO_BUILD_WARNINGS=deny cargo test --keep-going`. Keep linker warnings visible;
+suppress a specific diagnostic only when its cause is understood.
+
+Verify changing feature status against the [Rust release notes] and the selected
+toolchain's API documentation. An RFC, project goal, or final comment period is
+not a released feature.
+
+[Rust release notes]: https://doc.rust-lang.org/stable/releases.html
+
+## Imports
+
+Write grouped imports vertically, one item per line. Use braces for multiple
+items. Add an empty trailing `//` after the final item of each brace group,
+including nested groups, when needed to keep `rustfmt` from collapsing it.
+Keep the comment on the last item unless doing so creates needless patch churn.
+
+```rust
+use std::{
+    collections::{
+        HashMap,
+        HashSet, //
+    },
+    path::Path, //
+};
+```
+
+## Modules and visibility
+
+A module owns one responsibility. Split at an existing domain seam when types
+do not interact or private helpers serve unrelated sections. Do not split by
+line count or fragment a cohesive type to shorten a file.
+
+Name modules after their responsibilities. Avoid `types`, `utils`, `helpers`,
+`common`, and `misc`. Avoid redundant item prefixes: use `scan::Scanner`.
+
+Declare submodules in `foo.rs` beside `foo/`. Give each module its own file.
+The exceptions are `#[cfg(test)] mod tests`, placed last, and shared integration
+test helpers in `tests/common/mod.rs`. Cargo treats top-level `tests/*.rs` files
+as independent test binaries.
+
+Keep entry points, domain types, and public re-exports in the parent. Keep
+implementation submodules private so a split preserves caller import paths.
+Default moved items to private, then add only the visibility callers require.
+Use `pub(crate)` for crate-wide access and `pub(super)` for a real parent-child
+boundary. Do not use `pub(in path)`. Reserve `pub` for intended external APIs.
+
+Enable these lints individually. Never enable all of Clippy's `restriction`
+group. Leave `clippy::redundant_pub_crate` off to avoid conflicting visibility
+advice.
+
+```toml
+[lints.clippy]
+inline_modules = "warn"
+mod_module_files = "warn"
+
+[lints.rust]
+unreachable_pub = "warn"
+missing_docs = "warn"
+```
+
+Define inherent `impl` blocks in the type's defining module. Put an operation
+used only by one caller in that caller as a private function when it does not
+belong to the type's contract. Move tests with the code they cover.
+
+## Functions and traits
+
+Put behavior in an `impl` when it owns state, maintains invariants, constructs
+the type, or performs that type's primary operation. Repeated dependency
+parameters across functions call for a context or service that owns them.
+Keep supporting methods private. Use free functions for stateless algorithms
+or operations with no honest receiver. Do not invent empty namespace structs.
+
+Use traits for substitution or intentional dependency boundaries. Define a
+trait near its consumer unless it is a public domain contract. Inject adapters
+through constructors or explicit contexts. One implementation is enough when
+the trait prevents domain code from depending on a database, HTTP client,
+filesystem, or SDK.
+
+Keep traits narrow. Do not mirror an entire inherent API or invent extension
+points. Use generics for local compile-time substitution. Use `dyn Trait` for
+runtime substitution, heterogeneous storage, or justified compile-time
+isolation. Seal public traits when downstream implementations are unsupported.
+
+## Types and conversions
+
+Order files for top-down reading: public entry points and domain types before
+private machinery. Accept `&str`, `&Path`, and `&[T]` for borrowed inputs. Take
+ownership when storing, consuming, or returning an owned value.
+
+Use newtypes and enums to enforce invariants, distinguish units or identifiers,
+and replace ambiguous boolean modes. Implement `Default` only for a valid,
+meaningful default.
+
+Use the standard conversion contract when it fits:
+
+| Contract | Mechanism |
+|---|---|
+| Infallible, lossless conversion with one obvious meaning | `From` |
+| Conversion that can reject input | `TryFrom` |
+| Cheap borrowed view | `AsRef` or `AsMut` |
+| Lookup view with equivalent `Eq`, `Ord`, and `Hash` | `Borrow` |
+| Canonical text parsing | `FromStr` |
+| Collection construction or growth | `FromIterator` or `Extend` |
+| Lossy, contextual, policy-driven, or I/O operation | Named method |
+
+Implement `From` and `TryFrom`; blanket implementations supply `Into` and
+`TryInto`. Use conversion bounds on parameters only when several input forms
+benefit callers. Prefer concrete parameters for internal functions.
+
+Preserve error sources in conversions used by `?`. Do not convert unrelated
+types just because their fields match, or retain a custom helper that duplicates
+a trait implementation. Use `Result::flatten` for nested results with the same
+error type. Use `bool::try_from(integer)` when only zero and one are valid;
+nonzero truthiness is a different contract.
+
+## Ownership and control flow
+
+Establish ownership once, then borrow. Every `clone()`, `collect()`, `Arc`, and
+`Box` needs an ownership, storage, concurrency, or measured performance reason.
+Use entry APIs for map insertion when they express the operation directly.
+
+Use guard clauses, `?`, and `let else` for early exits. Use let-chains when
+successive tests depend on earlier bindings. Use `if let` match guards when an
+arm depends on another pattern; guarded arms do not establish exhaustiveness.
+
+```rust
+fn positive_number(input: Option<&str>) -> Option<u32> {
+    if let Some(text) = input
+        && let Ok(value) = text.parse::<u32>()
+        && value > 0
+    {
+        return Some(value);
+    }
+    None
+}
+
+assert_eq!(positive_number(Some("42")), Some(42));
+assert_eq!(positive_number(Some("0")), None);
+```
+
+Use iterator combinators when they expose the computation. Use a loop or match
+when a chain hides branching or error policy. Validate before mutation unless
+partial progress is the documented contract.
+
+Use typed errors at reusable boundaries and add operational context at
+application boundaries. Reserve `unwrap()` and `expect()` for proven invariants
+or intentional termination. An `expect()` message states the violated invariant.
+
+Use `core::cfg_select!` for ordered, mutually exclusive configuration branches.
+Use `#[cfg(false)]` for intentionally disabled code. Keep feature conditions
+explicit. Infer const arguments locally, such as `let bytes: [u8; 4] = [0; _]`
+or `zeros::<_>()`; function signatures still need a named const parameter.
+
+## Documentation and unsafe code
+
+Write `//` comments as Markdown sentences with capitalization and punctuation,
+including tagged comments. Explain non-local reasons, invariants, and hazards.
+Use `//!` for modules and `///` for item contracts, including meaningful private
+items. Omit duplicated docs for trivial trait implementations and obvious test
+helpers. Put implementation comments after item docs; keep a comment about a
+specific documentation line beside that line.
+
+Start with one sentence stating what the item does. Use reference-style intra-doc
+links with an explicit canonical path in the same block:
+
+```rust
+/// Returns the number of bytes in a [`Path`]'s encoded representation.
+///
+/// [`Path`]: std::path::Path
+fn encoded_len(path: &std::path::Path) -> usize {
+    path.as_os_str().as_encoded_bytes().len()
+}
+```
+
+Add executable examples when they clarify use, `# Errors` for meaningful failure
+cases, and `# Panics` for every public panic condition. Unsafe functions and
+traits require `# Safety` documenting all caller or implementor obligations.
+
+Every unsafe block, including those inside unsafe functions and examples, needs
+an immediately preceding `// SAFETY:` proof of its specific preconditions.
+Document unsafe impls the same way. A `# Safety` section defines obligations;
+the local proof explains why this operation meets them. Check validity,
+alignment, provenance, aliasing, lifetimes, and initialization as applicable.
+
+Use explicit unsafe blocks inside unsafe functions, `unsafe extern` blocks,
+and `#[unsafe(...)]` for unsafe attributes. Safe construction of a raw pointer
+does not establish that dereferencing it is valid.
+
+`missing_docs` checks public coverage only. Audit private items separately.
+Render docs with `--document-private-items` and deny broken intra-doc links
+when supported by the repository.
+
+## Tests
+
+Test behavior through stable entry points with small fixtures. Test accepted and
+rejected conversions. Test round trips only when reversibility is promised.
+Use a panic test only when panic is the contract.
+
+Use `core::assert_matches!` for pattern assertions and
+`core::debug_assert_matches!` for debug-only checks. Import these
+macros explicitly when using their unqualified names. Use doctests for public
+examples and run checks with the crate's supported toolchain and feature set.
+
+```rust
+use core::assert_matches;
+
+assert_matches!(Some(42), Some(value) if value > 0);
+```
