@@ -39,12 +39,20 @@ not a released feature.
 
 ## Imports
 
+Keep all `mod` declarations in one contiguous block, including `pub mod`.
+Follow it with one blank line, then one contiguous block of `use` and `pub use`
+statements. Do not insert blank lines between declarations or between import
+statements, including multiline groups. Visibility and import source do not
+create separate blocks. Keep attached documentation and attributes with their
+statements.
+
 Write grouped imports vertically, one item per line. Use braces for multiple
 items. Add an empty trailing `//` after the final item of each brace group,
 including nested groups, when needed to keep `rustfmt` from collapsing it.
 Keep the comment on the last item unless doing so creates needless patch churn.
 
 ```rust
+pub use std::time::Duration;
 use std::{
     collections::{
         HashMap,
@@ -52,6 +60,7 @@ use std::{
     },
     path::Path, //
 };
+use std::fmt;
 ```
 
 ## Modules and visibility
