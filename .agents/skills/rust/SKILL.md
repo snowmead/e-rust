@@ -99,22 +99,27 @@ main operation before reading implementation details. Importance determines
 placement, not visibility or item kind alone. Use this default order:
 
 1. Module documentation, module declarations, imports, and public re-exports.
-2. The main structs, domain enums, and traits that explain the module's model
+2. Constants, static declarations, compile-time assertions, and `const fn`
+   helpers used to compute compile-time values, including implementation-only
+   definitions.
+3. The main structs, domain enums, and traits that explain the module's model
    and boundaries. Keep their definitions visible before long implementations.
-3. Constructors, entry points, and the main behavior of those types. Put a trait
+4. Constructors, entry points, and the main behavior of those types. Put a trait
    implementation here when it defines the module's primary operation, such as
    `Iterator::next` for an iterator or `Read::read` for a reader.
-4. Supporting types and implementations: error enums with their variants,
+5. Supporting types and implementations: error enums with their variants,
    internal representations, and routine `Display`, `Debug`, `From`, or `Default`
    implementations that do not explain the main operation.
-5. Private helper functions, supporting methods, and implementation-only
-   constants. Keep related helpers together, in the order their callers use them.
-6. The `#[cfg(test)] mod tests` block.
+6. Private runtime helper functions and supporting methods. Keep related helpers
+   together, in the order their callers use them.
+7. The `#[cfg(test)] mod tests` block.
 
-Within an inherent `impl`, put constructors and primary methods before secondary
-operations and private helpers. If private methods bury the main API, move them
-into a later inherent `impl` in the same module. Keep them owned by their type.
-Keep each trait implementation intact and avoid scattering related behavior.
+Within an inherent `impl`, put associated constants and compile-time helpers
+first, then constructors and primary methods, then secondary operations and
+private runtime helpers. Keep associated items owned by their type. If private
+runtime methods bury the main API, move them into a later inherent `impl` in the
+same module. Keep each trait implementation intact and avoid scattering related
+behavior.
 
 Keep an enum and its variants together. Move the whole error definition below
 its callers when its details interrupt the main flow. In a module whose purpose
