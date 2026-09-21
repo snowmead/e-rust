@@ -38,7 +38,7 @@ let total: Result<u32, std::num::ParseIntError> = try {
     let second = "22".parse::<u32>()?;
     first + second
 };
-assert_eq!(total.unwrap(), 42);
+assert_eq!(total, Ok(42));
 ```
 
 An RTN `Send` bound covers the method's returned future. A spawned task also

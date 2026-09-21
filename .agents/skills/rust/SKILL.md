@@ -168,14 +168,42 @@ points. Use generics for local compile-time substitution. Use `dyn Trait` for
 runtime substitution, heterogeneous storage, or justified compile-time
 isolation. Seal public traits when downstream implementations are unsupported.
 
-## Types and conversions
+## Types and invariants
 
-Accept `&str`, `&Path`, and `&[T]` for borrowed inputs. Take ownership when
-storing, consuming, or returning an owned value.
+Make invalid code fail to compile. Encode valid states and operations in types
+before adding runtime checks. Return explicit errors for invalid runtime input.
 
-Use newtypes and enums to enforce invariants, distinguish units or identifiers,
-and replace ambiguous boolean modes. Implement `Default` only for a valid,
+Use named structs instead of tuples, including tuple structs, for data you
+model. Give enum payloads named fields. Field names must explain the values;
+positions are not semantics. Unpack tuples required by external APIs at the
+boundary rather than carrying positional data through the application.
+
+Use distinct newtypes or enums for domain IDs, units, amounts, and validation
+states. Unrelated values must not be interchangeable merely because they share
+a scalar representation. Do not use naked boolean mode flags, magic values,
+sentinels, or meaningless defaults. Implement `Default` only for a valid,
 meaningful default.
+
+Keep invariant-bearing fields private. Establish invariants through constructors
+or `TryFrom`, and preserve them through every mutation and conversion. Encode
+only constraints established by requirements or existing code. Never infer
+nonzero, positivity, ordering, or other validation rules from a name.
+
+Do not expose partially initialized domain values. Use typestate for
+state-dependent APIs: expose only operations valid in that state, and make
+transitions consume the old state and return the new one. If construction has
+stages, represent each valid stage explicitly.
+
+Express access and capabilities through ownership, borrowing, lifetimes, and
+trait bounds. Do not substitute flags or comments for restrictions the compiler
+can enforce. Accept `&str`, `&Path`, and `&[T]` for borrowed inputs. Take ownership
+when storing, consuming, or returning an owned value.
+
+In struct construction and destructuring, name every field. Do not use `..`,
+including struct update syntax such as `..Default::default()`. Adding a field
+must force affected sites to be reviewed.
+
+## Conversions
 
 Use the standard conversion contract when it fits:
 
@@ -200,6 +228,20 @@ error type. Use `bool::try_from(integer)` when only zero and one are valid;
 nonzero truthiness is a different contract.
 
 ## Ownership and control flow
+
+Write Rust using enums and patterns, `Option` and `Result`, iterators, and
+ownership. Do not translate foreign-language designs into string tags, sentinel
+values, manual index loops, defensive copies, or output parameters when Rust's
+types and return values express the operation directly.
+
+In `match`, name every enum variant explicitly. Do not use `_` or a catch-all
+binding to absorb unlisted variants. Adding a variant must break every affected
+match so its behavior is reviewed. Combine named variants with `|` when their
+behavior is identical.
+
+At external API boundaries, use wildcard or rest patterns only when the compiler
+requires them for a foreign `#[non_exhaustive]` type. Handle unknown variants
+deliberately. Keep these required patterns out of domain types you control.
 
 Establish ownership once, then borrow. Every `clone()`, `collect()`, `Arc`, and
 `Box` needs an ownership, storage, concurrency, or measured performance reason.
@@ -228,9 +270,14 @@ Use iterator combinators when they expose the computation. Use a loop or match
 when a chain hides branching or error policy. Validate before mutation unless
 partial progress is the documented contract.
 
-Use typed errors at reusable boundaries and add operational context at
-application boundaries. Reserve `unwrap()` and `expect()` for proven invariants
-or intentional termination. An `expect()` message states the violated invariant.
+Never use `anyhow`. Use `thiserror` or the framework's typed equivalent to
+represent failures explicitly. Map each failure deliberately, preserving its
+source and adding operational context at application boundaries.
+
+Do not use `unwrap()`, `expect()`, `panic!`, or `unreachable!` where a type or an
+explicit error can handle the case. Outside test assertions, assert only internal
+invariants that cannot be encoded in types. State the violated invariant in the
+message. Invalid runtime input is an error, not an assertion failure.
 
 Use `core::cfg_select!` for ordered, mutually exclusive configuration branches.
 Use `#[cfg(false)]` for intentionally disabled code. Keep feature conditions

@@ -36,9 +36,10 @@ variants only with a proven nonzero chunk size and exact divisibility.
 
 ```rust
 let text = String::from("<entry>");
-let inner = text.strip_circumfix("<", ">").unwrap();
-let location = text.substr_range(inner).unwrap();
-assert_eq!((location.start, location.end), (1, 6));
+let location = text
+    .strip_circumfix("<", ">")
+    .and_then(|inner| text.substr_range(inner));
+assert_eq!(location, Some(core::range::Range { start: 1, end: 6 }));
 
 let mut buffer = core::fmt::NumBuffer::new();
 let digits = 123_u32.format_into(&mut buffer);
