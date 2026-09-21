@@ -64,12 +64,19 @@ Name modules after their responsibilities. Avoid `types`, `utils`, `helpers`,
 `common`, and `misc`. Avoid redundant item prefixes: use `scan::Scanner`.
 
 Declare submodules in `foo.rs` beside `foo/`. Give each module its own file.
-The exceptions are `#[cfg(test)] mod tests`, placed last, and shared integration
-test helpers in `tests/common/mod.rs`. Cargo treats top-level `tests/*.rs` files
-as independent test binaries.
+The exceptions are `#[cfg(test)] mod tests`, placed last, and the shared
+integration test module at `tests/common/mod.rs`. Cargo treats top-level
+`tests/*.rs` files as independent test binaries.
 
-Keep entry points, domain types, and public re-exports in the parent. Keep
-implementation submodules private so a split preserves caller import paths.
+Every `mod.rs` is a module index. Its only Rust items are out-of-line `mod`
+declarations and re-exports such as `pub use` or `pub(crate) use`. Never put
+structs, enums, traits, impls, functions, constants, statics, macros, or inline
+modules there. Put those definitions in child module files. This also applies
+to `tests/common/mod.rs`: define helpers in child files and re-export them.
+
+Expose entry points and domain types through the parent module. When the parent
+is `mod.rs`, use re-exports. Keep implementation submodules private so a split
+preserves caller import paths.
 Default moved items to private, then add only the visibility callers require.
 Use `pub(crate)` for crate-wide access and `pub(super)` for a real parent-child
 boundary. Do not use `pub(in path)`. Reserve `pub` for intended external APIs.
