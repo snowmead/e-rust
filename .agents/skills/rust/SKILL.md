@@ -92,6 +92,42 @@ Define inherent `impl` blocks in the type's defining module. Put an operation
 used only by one caller in that caller as a private function when it does not
 belong to the type's contract. Move tests with the code they cover.
 
+## Module reading order
+
+Order a module so the reader can identify its purpose, major components, and
+main operation before reading implementation details. Importance determines
+placement, not visibility or item kind alone. Use this default order:
+
+1. Module documentation, module declarations, imports, and public re-exports.
+2. The main structs, domain enums, and traits that explain the module's model
+   and boundaries. Keep their definitions visible before long implementations.
+3. Constructors, entry points, and the main behavior of those types. Put a trait
+   implementation here when it defines the module's primary operation, such as
+   `Iterator::next` for an iterator or `Read::read` for a reader.
+4. Supporting types and implementations: error enums with their variants,
+   internal representations, and routine `Display`, `Debug`, `From`, or `Default`
+   implementations that do not explain the main operation.
+5. Private helper functions, supporting methods, and implementation-only
+   constants. Keep related helpers together, in the order their callers use them.
+6. The `#[cfg(test)] mod tests` block.
+
+Within an inherent `impl`, put constructors and primary methods before secondary
+operations and private helpers. If private methods bury the main API, move them
+into a later inherent `impl` in the same module. Keep them owned by their type.
+Keep each trait implementation intact and avoid scattering related behavior.
+
+Keep an enum and its variants together. Move the whole error definition below
+its callers when its details interrupt the main flow. In a module whose purpose
+is error handling, that enum belongs near the top. Apply the same judgment to
+trait implementations: `FromStr` is central in a parsing module, while a routine
+error conversion belongs below the main operation.
+
+Do not move an item merely because it is private or public. A private engine can
+be the module's central component; a public error can be supporting detail.
+Keep declarations with ordering requirements, such as scoped macros, before
+their uses. A reader should not need to scroll past error variants, formatting
+code, or helper algorithms to discover what the module does.
+
 ## Functions and traits
 
 Put behavior in an `impl` when it owns state, maintains invariants, constructs
@@ -113,9 +149,8 @@ isolation. Seal public traits when downstream implementations are unsupported.
 
 ## Types and conversions
 
-Order files for top-down reading: public entry points and domain types before
-private machinery. Accept `&str`, `&Path`, and `&[T]` for borrowed inputs. Take
-ownership when storing, consuming, or returning an owned value.
+Accept `&str`, `&Path`, and `&[T]` for borrowed inputs. Take ownership when
+storing, consuming, or returning an owned value.
 
 Use newtypes and enums to enforce invariants, distinguish units or identifiers,
 and replace ambiguous boolean modes. Implement `Default` only for a valid,
