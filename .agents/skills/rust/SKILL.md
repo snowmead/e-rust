@@ -10,7 +10,7 @@ repository is silent. Keep unrelated cleanup out of behavioral changes.
 
 ## Toolchain
 
-Use edition 2024 and Rust 1.98.1 or newer for new projects. Respect an existing
+Use edition 2024 and Rust 1.99.0 or newer for new projects. Respect an existing
 crate's declared minimum supported Rust version, edition, and release channel.
 Set `rust-version` to the oldest compiler the crate actually supports and tests.
 Check the manifest and toolchain before choosing APIs.
@@ -29,7 +29,9 @@ When setting up CI, test the supported release toolchain and add a current
 nightly compatibility job. Nightly coverage does not establish stable support.
 For a warning-free CI build on Cargo 1.97+, use
 `CARGO_BUILD_WARNINGS=deny cargo test --keep-going`. Keep linker warnings visible;
-suppress a specific diagnostic only when its cause is understood.
+suppress a specific diagnostic only when its cause is understood. Cargo 1.99+
+disables incremental compilation when `CI` is set; do not add
+`CARGO_INCREMENTAL=0` for it.
 
 Verify changing feature status against the [Rust release notes] and the selected
 toolchain's API documentation. An RFC, project goal, or final comment period is
