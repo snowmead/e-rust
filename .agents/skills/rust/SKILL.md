@@ -94,16 +94,22 @@ boundary. Do not use `pub(in path)`. Reserve `pub` for intended external APIs.
 
 Enable these lints individually. Never enable all of Clippy's `restriction`
 group. Leave `clippy::redundant_pub_crate` off to avoid conflicting visibility
-advice.
+advice. Omit a lint the crate's oldest supported toolchain does not know:
+`definition_in_module_root`, the rest-pattern lints, and
+`raw_borrows_via_references` need Rust 1.99.
 
 ```toml
 [lints.clippy]
+definition_in_module_root = "warn"
 inline_modules = "warn"
 mod_module_files = "warn"
+rest_pattern_accessible_field = "warn"
+unnecessary_rest_pattern = "warn"
 
 [lints.rust]
 unreachable_pub = "warn"
 missing_docs = "warn"
+raw_borrows_via_references = "warn"
 ```
 
 Define inherent `impl` blocks in the type's defining module. Put an operation
@@ -203,7 +209,8 @@ when storing, consuming, or returning an owned value.
 
 In struct construction and destructuring, name every field. Do not use `..`,
 including struct update syntax such as `..Default::default()`. Adding a field
-must force affected sites to be reviewed.
+must force affected sites to be reviewed. The rest-pattern lints check struct
+patterns only; review struct update syntax by hand.
 
 ## Conversions
 
@@ -318,8 +325,9 @@ the local proof explains why this operation meets them. Check validity,
 alignment, provenance, aliasing, lifetimes, and initialization as applicable.
 
 Use explicit unsafe blocks inside unsafe functions, `unsafe extern` blocks,
-and `#[unsafe(...)]` for unsafe attributes. Safe construction of a raw pointer
-does not establish that dereferencing it is valid.
+and `#[unsafe(...)]` for unsafe attributes. Form raw pointers with `&raw const`
+or `&raw mut`, not a reference cast. Safe construction of a raw pointer does not
+establish that dereferencing it is valid.
 
 `missing_docs` checks public coverage only. Audit private items separately.
 Render docs with `--document-private-items` and deny broken intra-doc links
